@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { App, livePreviewState, MarkdownView, Notice, Plugin } from 'obsidian';
 import {EditorManager, EditorState} from './editor';
+import {WorkspaceManager} from './workspace';
 
 interface PluginSetting {
     folders: string[];
@@ -21,29 +22,32 @@ export default class AutoSwitchPlugin extends Plugin {
     public setting: PluginSetting;
     public sm: SettingManager;
     public edm: EditorManager;
-    private prevState: EditorState;
-    private isIn = false;
+    public wm: WorkspaceManager;
 
     private openIn() {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
             return;
         }
-        const state = this.edm.getEditorState();
         if (this.sm.hasFile(file.path) || this.sm.hasFolder(file.path)) {
-            if (this.isIn) {
-                return;
-            }
-            if (state !== 'other') {
-                this.prevState = state;
+            this.wm.recordPrevStateOnActiveLeaf();
+            const prevLock = this.wm.lockActiveLeaf();
+            if (prevLock) {
+                // 在上锁时状态改变了，则不改变状态。
+                const state = this.edm.getEditorState();
+                if (state !== 'preview') {
+                    return;
+                }
             }
             this.edm.setEditorMode('preview');
-            this.isIn = true;
-        } else if (this.isIn){
-            this.edm.setEditorMode(this.prevState);
-            this.isIn = false;
-        } else if (state !== 'other') {
-            this.prevState = state;
+        } else if (this.wm.isLockedActiveLeaf()) {
+            this.wm.releaseActiveLeaf();
+            const state = this.wm.getPrevStateOnActiveLeaf();
+            if (state !== 'other') {
+                this.edm.setEditorMode(state);
+            }
+        } else {
+            this.wm.recordPrevStateOnActiveLeaf();
         }
     }
 
@@ -66,6 +70,7 @@ export default class AutoSwitchPlugin extends Plugin {
 
         this.sm = new SettingManager(this);
         this.edm = new EditorManager(this);
+        this.wm = new WorkspaceManager(this);
 
         this.addRibbonIcon('switch', 'Auto Switch Viewer Mode', () => this.toggleSetting());
 
