@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-auto-switch-viewermode",
-	"name": "Auto Switch ViewerMode",
+	"id": "obsidian-auto-switch-view-mode",
+	"name": "Auto Switch View Mode",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Auto switch viewer mode for specific file.",
+	"description": "Auto switch view mode for specific file.",
 	"author": "bigshans",
 	"authorUrl": "https://github.com/bigshans",
 	"isDesktopOnly": false
