@@ -1,4 +1,4 @@
-import {App, PluginSettingTab, Setting, TAbstractFile, TFile} from "obsidian";
+import {App, PluginSettingTab, Setting} from "obsidian";
 import AutoSwitchPlugin, {Subscription} from "./main";
 
 interface Trigger {
@@ -27,10 +27,10 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName('Append File or Folder into List')
             .addDropdown((cp) => {
-                const files = Object.keys((this.plugin.app.vault as any).fileMap);
+                const files = this.app.vault.getAllLoadedFiles();
                 cp.addOption('', '请添加');
                 for (const file of files) {
-                    cp.addOption(file, file);
+                    cp.addOption(file.path, file.path);
                 }
                 choose.clear = () => {
                     cp.setValue('');
@@ -49,9 +49,11 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                         return;
                     }
                     const p = choose.value;
-                    const file = this.plugin.getFileFromFileMap(p);
-                    // maybe not in there, don't believe the type
-                    if (file.extension) {
+                    const file = this.plugin.getFileByPath(p);
+                    if (!file) {
+                        return ;
+                    }
+                    if (this.plugin.isFolder(file.path)) {
                         this.plugin.sm.appendFile(p);
                     } else {
                         this.plugin.sm.appendFolder(p);
@@ -91,61 +93,19 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
     }
 
     public buildFileList(containerEl: HTMLElement) {
-        containerEl.createEl('h3', {text: 'Rule List:'});
-        const ruleUl = containerEl.createEl('ul');
-        const buildRuleUl = () => {
-            for (const rule of this.plugin.setting.ruler) {
-                const li = ruleUl.createEl('li');
-                li.style.display = 'flex';
-                li.style.width = '100%';
-                li.style.justifyContent = 'space-between';
-                li.createEl('span', {text: rule});
-                const d = li.createEl('span', {text: 'X'}, (el) => {
-                    el.addEventListener('click', () => {
-                        this.plugin.sm.removeFolder(rule);
-                    });
-                });
-                d.style.cursor = 'pointer';
-            }
-        }
+        const [ ruleUl, buildRuleUl ] = this.createUl(containerEl, this.plugin.setting.ruler, (rule) => {
+            this.plugin.sm.removeRule(rule);
+        });
         buildRuleUl();
 
-        containerEl.createEl('h3', {text: 'File List:'});
-        const fileUl = containerEl.createEl('ul');
-        const buildFileUl = () => {
-            for (const file of this.plugin.setting.files) {
-                const li = fileUl.createEl('li');
-                li.style.display = 'flex';
-                li.style.width = '100%';
-                li.style.justifyContent = 'space-between';
-                li.createEl('span', {text: file});
-                const d = li.createEl('span', {text: 'X'}, (el) => {
-                    el.addEventListener('click', () => {
-                        this.plugin.sm.removeFile(file);
-                    });
-                });
-                d.style.cursor = 'pointer';
-            }
-        };
+        const [ fileUl, buildFileUl ] = this.createUl(containerEl, this.plugin.setting.files, (file) => {
+            this.plugin.sm.removeFile(file);
+        });
         buildFileUl();
 
-        containerEl.createEl('h3', {text: 'Folder List:'});
-        const folderUl = containerEl.createEl('ul');
-        const buildFolderUl = () => {
-            for (const folder of this.plugin.setting.folders) {
-                const li = folderUl.createEl('li');
-                li.style.display = 'flex';
-                li.style.width = '100%';
-                li.style.justifyContent = 'space-between';
-                li.createEl('span', {text: folder});
-                const d = li.createEl('span', {text: 'X'}, (el) => {
-                    el.addEventListener('click', () => {
-                        this.plugin.sm.removeFolder(folder);
-                    });
-                });
-                d.style.cursor = 'pointer';
-            }
-        }
+        const [folderUl, buildFolderUl] = this.createUl(containerEl, this.plugin.setting.folders, (folder) => {
+            this.plugin.sm.removeFolder(folder);
+        });
         buildFolderUl();
 
         return this.plugin.sm.subscribe((e) => {
@@ -160,5 +120,26 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                 buildRuleUl();
             }
         });
+    }
+
+    createUl(containerEl: HTMLElement, list: string[], removeListener: (v: string) => void): [HTMLElement, () => void] {
+        containerEl.createEl('h3', {text: 'Folder List:'});
+        const ulEl = containerEl.createEl('ul');
+        const build = () => {
+            for (const item of list) {
+                const li = ulEl.createEl('li');
+                li.style.display = 'flex';
+                li.style.width = '100%';
+                li.style.justifyContent = 'space-between';
+                li.createEl('span', {text: item});
+                const d = li.createEl('span', {text: 'X'}, (el) => {
+                    el.addEventListener('click', () => {
+                        removeListener(item);
+                    });
+                });
+                d.style.cursor = 'pointer';
+            }
+        }
+        return [ulEl, build];
     }
 }

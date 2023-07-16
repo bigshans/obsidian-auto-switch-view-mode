@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Notice, Plugin, TFile } from 'obsidian';
+import { Notice, Plugin, TFile, TFolder } from 'obsidian';
 import {EditorManager} from './editor';
 import {WorkspaceManager} from './workspace';
 import {AutoSwitchSettingTab} from './settingTab';
@@ -92,16 +92,16 @@ export default class AutoSwitchPlugin extends Plugin {
         new Notice('Take effect the next time you open the file');
     }
 
-    private isFolder(path: string) {
-        const file = this.getFileFromFileMap(path);
+    public isFolder(path: string) {
+        const file = this.getFileByPath(path);
         if (!file) {
             return false;
         }
-        return !file.extension;
+        return file instanceof TFolder;
     }
 
-    public getFileFromFileMap(path: string): TFile {
-        return (this.app.vault as any).fileMap[path];
+    public getFileByPath(path: string) {
+        return this.app.vault.getAbstractFileByPath(path);
     }
 
     async onload() {
@@ -111,27 +111,26 @@ export default class AutoSwitchPlugin extends Plugin {
         this.edm = new EditorManager(this);
         this.wm = new WorkspaceManager(this);
 
-        // I think it's needn't.
-        // this.addRibbonIcon('switch', 'Auto Switch Viewer Mode', () => this.toggleSetting(this.getActiveFile()));
-
         this.addCommand({
             id: 'append-or-remove-to-switch-list',
             name: "Append or remove to auto switch list",
-            callback: () => this.toggleSetting(this.getActiveFilePath()),
+            editorCheckCallback: () => this.toggleSetting(this.getActiveFilePath()),
         });
 
         this.addSettingTab(new AutoSwitchSettingTab(this.app, this));
 
-        this.app.workspace.on('file-open', () => this.openIn());
-        this.app.workspace.on('file-menu', (menu, file) => {
-            menu.addItem((item) => {
-                item.setTitle("Auto Switch: remove or append to list")
+        this.registerEvent(this.app.workspace.on('file-open', () => this.openIn()));
+        this.registerEvent(
+            this.app.workspace.on('file-menu', (menu, file) => {
+                menu.addItem((item) => {
+                    item.setTitle("Auto Switch: remove or append to list")
                     .setIcon("switch")
                     .onClick(() => {
                         this.toggleSetting(file.path);
                     });
-            });
-        });
+                });
+            })
+        );
     }
 
     async loadSettings() {
@@ -156,7 +155,7 @@ export type Subscription = (e: SettingEvent) => void;
 class SettingManager {
     private files: Set<string>;
     private folders: Set<string>;
-    private ruler: Set<string>;
+    private rulers: Set<string>;
     private rawData: PluginSetting;
     private subscription: Subscription[] = [];
 
@@ -166,7 +165,7 @@ class SettingManager {
         this.rawData = settingManager.setting;
         this.files = new Set(this.rawData.files);
         this.folders = new Set(this.rawData.folders);
-        this.ruler = new Set(this.rawData.ruler);
+        this.rulers = new Set(this.rawData.ruler);
         this.subscribe((_) => {
             this.triggerSaved();
         })
@@ -175,7 +174,7 @@ class SettingManager {
     private triggerSaved() {
         this.rawData.files = [...this.files];
         this.rawData.folders = [...this.folders];
-        this.rawData.ruler = [...this.ruler];
+        this.rawData.ruler = [...this.rulers];
         this.settingManager.saveSettings();
     }
 
@@ -202,7 +201,7 @@ class SettingManager {
     }
 
     public appendRule(rule: string) {
-        this.ruler.add(rule);
+        this.rulers.add(rule);
         this.dispatch({
             path: rule,
             type: 'rule',
@@ -226,7 +225,7 @@ class SettingManager {
     }
 
     public meetRule(path: string): boolean {
-        for (const rule of this.ruler) {
+        for (const rule of this.rulers) {
             try {
                 const r = new RegExp(rule);
                 if (r.test(path)) {
@@ -249,10 +248,27 @@ class SettingManager {
     }
 
     public removeFolder(path: string) {
-        this.folders.delete(path);
+        const paths = path.split('/');
+        while (paths.length > 0) {
+            const p = paths.join('/');
+            if (this.folders.has(paths.join('/'))) {
+                this.folders.delete(p);
+                this.dispatch({
+                    path: p,
+                    type: 'folder',
+                    op: 'remove'
+                });
+                return ;
+            }
+            paths.pop();
+        }
+    }
+
+    public removeRule(rule: string) {
+        this.folders.delete(rule);
         this.dispatch({
-            path,
-            type: 'folder',
+            path: rule,
+            type: 'rule',
             op: 'remove'
         });
     }
