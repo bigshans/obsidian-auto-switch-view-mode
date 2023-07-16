@@ -78,7 +78,7 @@ export default class AutoSwitchPlugin extends Plugin {
                 op = 'remove';
                 this.sm.removeFolder(path);
             } else {
-                op = 'append'
+                op = 'append';
                 this.sm.appendFolder(path);
             }
         } else {
@@ -86,7 +86,7 @@ export default class AutoSwitchPlugin extends Plugin {
                 op = 'remove';
                 this.sm.removeFile(path);
             } else {
-                op = 'append'
+                op = 'append';
                 this.sm.appendFile(path);
             }
         }
