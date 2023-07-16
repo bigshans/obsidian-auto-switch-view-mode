@@ -114,7 +114,7 @@ export default class AutoSwitchPlugin extends Plugin {
         this.addCommand({
             id: 'append-or-remove-to-switch-list',
             name: "Append or remove to auto switch list",
-            editorCheckCallback: () => this.toggleSetting(this.getActiveFilePath()),
+            callback: () => this.toggleSetting(this.getActiveFilePath()),
         });
 
         this.addSettingTab(new AutoSwitchSettingTab(this.app, this));
