@@ -39,6 +39,7 @@ export default class AutoSwitchPlugin extends Plugin {
             }
             this.wm.recordPrevStateOnActiveLeaf();
             this.edm.setEditorMode('preview');
+            this.wm.lockActiveLeaf();
         } else if (this.wm.isLockedActiveLeaf()) {
             this.wm.releaseActiveLeaf();
             const state = this.wm.getPrevStateOnActiveLeaf();
