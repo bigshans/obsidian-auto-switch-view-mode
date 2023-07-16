@@ -6,7 +6,8 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+        "pack": "npm run build && cp ./manifest.json ./dist/ && cd dist && mkdir obsidian-auto-switch-view-mode && cp main.js manifest.json obsidian-auto-switch-view-mode && tar -czvf obsidian-auto-switch-view-mode.tar.gz obsidian-auto-switch-view-mode/"
 	},
 	"keywords": [],
 	"author": "",

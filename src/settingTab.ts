@@ -21,78 +21,84 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         containerEl.createEl('h2', {text: 'Setting for auto switch view mode'});
-        const choose: Trigger = {
+        this.buildAppendSetting(containerEl);
+        this.buildRuleSetting(containerEl);
+        this.sub = this.buildFileList(containerEl);
+    }
+
+    buildAppendSetting(containerEl: HTMLElement) {
+        const detect: Trigger = {
             value: '',
         };
         new Setting(containerEl)
-            .setName('Append File or Folder into List')
-            .addDropdown((cp) => {
-                const files = this.app.vault.getAllLoadedFiles();
-                cp.addOption('', '请添加');
-                for (const file of files) {
-                    cp.addOption(file.path, file.path);
+        .setName('Append File or Folder into List')
+        .addDropdown((cp) => {
+            const files = this.app.vault.getAllLoadedFiles();
+            cp.addOption('', '请添加');
+            for (const file of files) {
+                cp.addOption(file.path, file.path);
+            }
+            detect.clear = () => cp.setValue("");
+            cp.onChange((v) => {
+                if (v) {
+                    cp.setValue(v);
+                    detect.value = v;
                 }
-                choose.clear = () => {
-                    cp.setValue('');
-                }
-                cp.onChange((v) => {
-                    if (v) {
-                        cp.setValue(v);
-                        choose.value = v;
-                    }
-                });
-            })
-            .addButton(cp => {
-                cp.setButtonText('Add');
-                cp.onClick(() => {
-                    if (!choose.value) {
-                        return;
-                    }
-                    const p = choose.value;
-                    const file = this.plugin.getFileByPath(p);
-                    if (!file) {
-                        return ;
-                    }
-                    if (this.plugin.isFolder(file.path)) {
-                        this.plugin.sm.appendFile(p);
-                    } else {
-                        this.plugin.sm.appendFolder(p);
-                    }
-                    choose.clear && choose.clear();
-                });
             });
+        })
+        .addButton(cp => {
+            cp.setButtonText('Add');
+            cp.onClick(() => {
+                if (detect.value) {
+                    return;
+                }
+                const p = detect.value;
+                const file = this.plugin.getFileByPath(p);
+                if (!file) {
+                    return ;
+                }
+                if (this.plugin.isFolder(file.path)) {
+                    this.plugin.sm.appendFile(p);
+                } else {
+                    this.plugin.sm.appendFolder(p);
+                }
+                detect.clear && detect.clear();
+            });
+        });
+    }
+
+    buildRuleSetting(containerEl: HTMLElement) {
         const detect: Trigger = {
             value: '',
         }
         new Setting(containerEl)
-            .setName('Set regexp')
-            .addText((cp) => {
-                detect.clear = () => {
-                    cp.setValue('');
-                }
-                cp.onChange((v) => {
-                    detect.value = v;
-                })
+        .setName('Add regexp rule')
+        .addText((cp) => {
+            detect.clear = () => {
+                cp.setValue('');
+            }
+            cp.onChange((v) => {
+                detect.value = v;
             })
-            .addButton((cp) => {
-                cp.setButtonText('Add');
-                cp.onClick(() => {
-                    if(!detect.value) {
-                        return;
-                    }
-                    this.plugin.sm.appendRule(detect.value);
-                    detect.value = '';
-                    detect.clear && detect.clear();
-                })
-            });
-        this.sub = this.buildFileList(containerEl);
+        })
+        .addButton((cp) => {
+            cp.setButtonText('Add');
+            cp.onClick(() => {
+                if(!detect.value) {
+                    return;
+                }
+                this.plugin.sm.appendRule(detect.value);
+                detect.value = '';
+                detect.clear && detect.clear();
+            })
+        });
     }
 
-    public hide() {
+    hide() {
         this.plugin.sm.unsubscribe(this.sub);
     }
 
-    public buildFileList(containerEl: HTMLElement) {
+    buildFileList(containerEl: HTMLElement) {
         const [ ruleUl, buildRuleUl ] = this.createUl(containerEl, this.plugin.setting.ruler, (rule) => {
             this.plugin.sm.removeRule(rule);
         });
