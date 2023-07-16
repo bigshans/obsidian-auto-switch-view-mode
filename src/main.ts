@@ -271,7 +271,7 @@ class SettingManager {
     }
 
     public removeRule(rule: string) {
-        this.folders.delete(rule);
+        this.rulers.delete(rule);
         this.dispatch({
             value: rule,
             type: 'rule',

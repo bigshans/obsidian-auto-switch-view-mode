@@ -115,17 +115,17 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
     }
 
     buildFileList(containerEl: HTMLElement) {
-        const [ ruleUl, buildRuleUl ] = this.createUl(containerEl, this.plugin.setting.ruler, (rule) => {
+        const [ ruleUl, buildRuleUl ] = this.createUl(containerEl, 'Rule List', () => this.plugin.setting.ruler, (rule) => {
             this.plugin.sm.removeRule(rule);
         });
         buildRuleUl();
 
-        const [ fileUl, buildFileUl ] = this.createUl(containerEl, this.plugin.setting.files, (file) => {
+        const [ fileUl, buildFileUl ] = this.createUl(containerEl, 'File List', () => this.plugin.setting.files, (file) => {
             this.plugin.sm.removeFile(file);
         });
         buildFileUl();
 
-        const [folderUl, buildFolderUl] = this.createUl(containerEl, this.plugin.setting.folders, (folder) => {
+        const [folderUl, buildFolderUl] = this.createUl(containerEl, 'Folder List', () => this.plugin.setting.folders, (folder) => {
             this.plugin.sm.removeFolder(folder);
         });
         buildFolderUl();
@@ -144,11 +144,11 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         });
     }
 
-    createUl(containerEl: HTMLElement, list: string[], removeListener: (v: string) => void): [HTMLElement, () => void] {
-        containerEl.createEl('h3', {text: 'Folder List:'});
+    createUl(containerEl: HTMLElement, title: string, getList: () => string[], removeListener: (v: string) => void): [HTMLElement, () => void] {
+        containerEl.createEl('h3', {text: title});
         const ulEl = containerEl.createEl('ul');
         const build = () => {
-            for (const item of list) {
+            for (const item of getList()) {
                 const li = ulEl.createEl('li');
                 li.style.display = 'flex';
                 li.style.width = '100%';
