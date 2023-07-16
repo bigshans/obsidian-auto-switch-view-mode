@@ -1,9 +1,9 @@
 import {App, PluginSettingTab, Setting, TFile} from "obsidian";
 import AutoSwitchPlugin, {Subscription} from "./main";
 
-interface ChooseTrigger {
-    addButton?: (v: string) => void;
-    cleanDropdown?: () => void;
+interface Trigger {
+    value: string;
+    clear?: () => void;
 }
 
 export class AutoSwitchSettingTab extends PluginSettingTab {
@@ -21,7 +21,8 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         containerEl.createEl('h2', {text: 'Setting for auto switch view mode'});
-        const choose: ChooseTrigger = {
+        const choose: Trigger = {
+            value: '',
         };
         new Setting(containerEl)
             .setName('Append File or Folder into List')
@@ -31,27 +32,23 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                 for (const file of files) {
                     cp.addOption(file, file);
                 }
-                choose.cleanDropdown = () => {
+                choose.clear = () => {
                     cp.setValue('');
                 }
                 cp.onChange((v) => {
                     if (v) {
                         cp.setValue(v);
-                        const {addButton} = choose;
-                        addButton && addButton(v);
+                        choose.value = v;
                     }
                 });
             })
             .addButton(cp => {
-                let p = '';
-                choose.addButton = (v) => {
-                    p = v;
-                };
+                cp.setButtonText('Add');
                 cp.onClick(() => {
-                    if (!p) {
+                    if (!choose.value) {
                         return;
                     }
-                    const {cleanDropdown} = choose;
+                    const p = choose.value;
                     const file: TFile = (this.plugin.app.vault as any).fileMap[p];
                     // maybe not in there, don't believe the type
                     if (file.extension) {
@@ -59,8 +56,32 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                     } else {
                         this.plugin.sm.appendFolder(p);
                     }
-                    cleanDropdown && cleanDropdown();
+                    choose.clear && choose.clear();
                 });
+            });
+        const detect: Trigger = {
+            value: '',
+        }
+        new Setting(containerEl)
+            .setName('Set regexp')
+            .addText((cp) => {
+                detect.clear = () => {
+                    cp.setValue('');
+                }
+                cp.onChange((v) => {
+                    detect.value = v;
+                })
+            })
+            .addButton((cp) => {
+                cp.setButtonText('Add');
+                cp.onClick(() => {
+                    if(!detect.value) {
+                        return;
+                    }
+                    this.plugin.sm.appendRule(detect.value);
+                    detect.value = '';
+                    detect.clear && detect.clear();
+                })
             });
         this.sub = this.buildFileList(containerEl);
     }
@@ -70,6 +91,25 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
     }
 
     public buildFileList(containerEl: HTMLElement) {
+        containerEl.createEl('h3', {text: 'Rule List:'});
+        const ruleUl = containerEl.createEl('ul');
+        const buildRuleUl = () => {
+            for (const rule of this.plugin.setting.ruler) {
+                const li = ruleUl.createEl('li');
+                li.style.display = 'flex';
+                li.style.width = '100%';
+                li.style.justifyContent = 'space-between';
+                li.createEl('span', {text: rule});
+                const d = li.createEl('span', {text: 'X'}, (el) => {
+                    el.addEventListener('click', () => {
+                        this.plugin.sm.removeFolder(rule);
+                    });
+                });
+                d.style.cursor = 'pointer';
+            }
+        }
+        buildRuleUl();
+
         containerEl.createEl('h3', {text: 'File List:'});
         const fileUl = containerEl.createEl('ul');
         const buildFileUl = () => {
@@ -112,9 +152,12 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
             if (e.type === 'file') {
                 fileUl.empty();
                 buildFileUl();
-            } else {
+            } else if (e.type === 'folder') {
                 folderUl.empty();
                 buildFolderUl();
+            } else if (e.type === 'rule'){
+                ruleUl.empty();
+                buildRuleUl();
             }
         });
     }

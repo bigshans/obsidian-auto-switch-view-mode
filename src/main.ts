@@ -7,6 +7,7 @@ import {AutoSwitchSettingTab} from './settingTab';
 interface PluginSetting {
     folders: string[];
     files: string[];
+    ruler: string[];
 }
 
 interface SaveSetting {
@@ -16,7 +17,8 @@ interface SaveSetting {
 
 const DEFAULT_SETTING: PluginSetting = {
     folders: [],
-    files: []
+    files: [],
+    ruler: []
 }
 
 export default class AutoSwitchPlugin extends Plugin {
@@ -30,7 +32,7 @@ export default class AutoSwitchPlugin extends Plugin {
         if (!file) {
             return;
         }
-        if (this.sm.hasFile(file.path) || this.sm.hasFolder(file.path)) {
+        if (this.sm.meetRule(file.path) || this.sm.hasFile(file.path) || this.sm.hasFolder(file.path)) {
             const state = this.edm.getEditorState();
             // 初次进入目标文件，其状态不为 preview 或 source 时，将不进行上锁
             // 其状态延续之前的状态。
@@ -99,7 +101,7 @@ export default class AutoSwitchPlugin extends Plugin {
 
 export interface SettingEvent {
     path: string;
-    type: 'file' | 'folder';
+    type: 'file' | 'folder' | 'rule';
     op: 'append' | 'remove';
 }
 export type Subscription = (e: SettingEvent) => void;
@@ -107,6 +109,7 @@ export type Subscription = (e: SettingEvent) => void;
 class SettingManager {
     private files: Set<string>;
     private folders: Set<string>;
+    private ruler: Set<string>;
     private rawData: PluginSetting;
     private subscription: Subscription[] = [];
 
@@ -116,6 +119,7 @@ class SettingManager {
         this.rawData = settingManager.setting;
         this.files = new Set(this.rawData.files);
         this.folders = new Set(this.rawData.folders);
+        this.ruler = new Set(this.rawData.ruler);
         this.subscribe((_) => {
             this.triggerSaved();
         })
@@ -124,6 +128,7 @@ class SettingManager {
     private triggerSaved() {
         this.rawData.files = [...this.files];
         this.rawData.folders = [...this.folders];
+        this.rawData.ruler = [...this.ruler];
         this.settingManager.saveSettings();
     }
 
@@ -149,6 +154,15 @@ class SettingManager {
         });
     }
 
+    public appendRule(rule: string) {
+        this.ruler.add(rule);
+        this.dispatch({
+            path: rule,
+            type: 'rule',
+            op: 'append',
+        })
+    }
+
     public hasFile(path: string) {
         return this.files.has(path);
     }
@@ -160,6 +174,20 @@ class SettingManager {
                 return true;
             }
             paths.pop();
+        }
+        return false;
+    }
+
+    public meetRule(path: string): boolean {
+        for (const rule of this.ruler) {
+            try {
+                const r = new RegExp(rule);
+                if (r.test(path)) {
+                    return true;
+                }
+            } catch (e) {
+                console.log(e);
+            }
         }
         return false;
     }
