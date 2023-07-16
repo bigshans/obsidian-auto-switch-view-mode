@@ -8,6 +8,7 @@ interface PluginSetting {
     folders: string[];
     files: string[];
     ruler: string[];
+    blackRule: string[];
     initState: EditorState;
 }
 
@@ -20,6 +21,7 @@ const DEFAULT_SETTING: PluginSetting = {
     folders: [],
     files: [],
     ruler: [],
+    blackRule: [],
     initState: 'source',
 }
 
@@ -35,7 +37,8 @@ export default class AutoSwitchPlugin extends Plugin {
         if (!file) {
             return;
         }
-        if (this.sm.meetRule(file.path) || this.sm.hasFile(file.path) || this.sm.hasFolder(file.path)) {
+        if (!this.sm.isInBlackList(file.path)
+            && (this.sm.meetRule(file.path) || this.sm.hasFile(file.path) || this.sm.hasFolder(file.path))) {
             const state = this.edm.getEditorState();
             // 初次进入目标文件，其状态不为 preview 或 source 时，将不进行上锁
             // 其状态延续之前的状态。
@@ -150,7 +153,7 @@ export default class AutoSwitchPlugin extends Plugin {
 
 export interface SettingEvent {
     value: string;
-    type: 'file' | 'folder' | 'rule' | 'initState';
+    type: 'file' | 'folder' | 'rule' | 'initState' | 'blackRule';
     op: 'append' | 'remove' | 'update';
 }
 export type Subscription = (e: SettingEvent) => void;
@@ -159,6 +162,8 @@ class SettingManager {
     private files: Set<string>;
     private folders: Set<string>;
     private rulers: Set<string>;
+    private blackRule: Set<string>;
+
     private rawData: PluginSetting;
     private initState: EditorState;
     private subscription: Subscription[] = [];
@@ -170,7 +175,9 @@ class SettingManager {
         this.files = new Set(this.rawData.files);
         this.folders = new Set(this.rawData.folders);
         this.rulers = new Set(this.rawData.ruler);
+        this.blackRule = new Set(this.rawData.blackRule);
         this.initState = this.rawData.initState;
+
         this.subscribe((_) => {
             this.triggerSaved();
         })
@@ -181,6 +188,7 @@ class SettingManager {
         this.rawData.folders = [...this.folders];
         this.rawData.ruler = [...this.rulers];
         this.rawData.initState = this.initState;
+        this.rawData.blackRule = [...this.blackRule];
         this.settingManager.saveSettings();
     }
 
@@ -215,6 +223,15 @@ class SettingManager {
         })
     }
 
+    public appendBlackRule(rule: string) {
+        this.blackRule.add(rule);
+        this.dispatch({
+            value: rule,
+            type: 'blackRule',
+            op: 'append',
+        })
+    }
+
     public hasFile(path: string) {
         return this.files.has(path);
     }
@@ -232,6 +249,20 @@ class SettingManager {
 
     public meetRule(path: string): boolean {
         for (const rule of this.rulers) {
+            try {
+                const r = new RegExp(rule);
+                if (r.test(path)) {
+                    return true;
+                }
+            } catch (e) {
+                console.log(e);
+            }
+        }
+        return false;
+    }
+
+    public isInBlackList(path: string): boolean {
+        for (const rule of this.blackRule) {
             try {
                 const r = new RegExp(rule);
                 if (r.test(path)) {
@@ -275,6 +306,15 @@ class SettingManager {
         this.dispatch({
             value: rule,
             type: 'rule',
+            op: 'remove'
+        });
+    }
+
+    public removeBlack(rule: string) {
+        this.blackRule.delete(rule);
+        this.dispatch({
+            value: rule,
+            type: 'blackRule',
             op: 'remove'
         });
     }

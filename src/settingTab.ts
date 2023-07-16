@@ -23,6 +23,7 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         containerEl.createEl('h2', {text: 'Setting for auto switch mode'});
         this.buildAppendSetting(containerEl);
         this.buildRuleSetting(containerEl);
+        this.buildBlackSetting(containerEl);
         this.buildInitState(containerEl);
         this.sub = this.buildFileList(containerEl);
     }
@@ -50,7 +51,7 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         .addButton(cp => {
             cp.setButtonText('Add');
             cp.onClick(() => {
-                if (detect.value) {
+                if (!detect.value) {
                     return;
                 }
                 const p = detect.value;
@@ -68,13 +69,15 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
         });
     }
 
-    buildRuleSetting(containerEl: HTMLElement) {
+    buildTextAddUI(containerEl: HTMLElement, settingDesc: { name: string; desc?: string }, solve: (v: string) => void) {
         const detect: Trigger = {
             value: '',
         }
-        new Setting(containerEl)
-        .setName('Add regexp rule')
-        .addText((cp) => {
+        const s = new Setting(containerEl).setName(settingDesc.name);
+        if (settingDesc.desc) {
+            s.setDesc(settingDesc.desc);
+        }
+        s.addText((cp) => {
             detect.clear = () => {
                 cp.setValue('');
             }
@@ -88,10 +91,26 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                 if(!detect.value) {
                     return;
                 }
-                this.plugin.sm.appendRule(detect.value);
+                solve(detect.value);
                 detect.value = '';
                 detect.clear && detect.clear();
             })
+        });
+    }
+
+    buildRuleSetting(containerEl: HTMLElement) {
+        this.buildTextAddUI(containerEl, {
+            name: 'Add regexp rule',
+        }, (v) => {
+            this.plugin.sm.appendRule(v);
+        });
+    }
+
+    buildBlackSetting(containerEl: HTMLElement) {
+        this.buildTextAddUI(containerEl, {
+            name: 'Add regexp rule to black list',
+        }, (v) => {
+            this.plugin.sm.appendBlackRule(v);
         });
     }
 
@@ -115,6 +134,11 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
     }
 
     buildFileList(containerEl: HTMLElement) {
+        const [ blackUl, buildBlackUl ] = this.createUl(containerEl, 'Black Rule List', () => this.plugin.setting.blackRule, (rule) => {
+            this.plugin.sm.removeBlack(rule);
+        });
+        buildBlackUl();
+
         const [ ruleUl, buildRuleUl ] = this.createUl(containerEl, 'Rule List', () => this.plugin.setting.ruler, (rule) => {
             this.plugin.sm.removeRule(rule);
         });
@@ -140,6 +164,9 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
             } else if (e.type === 'rule'){
                 ruleUl.empty();
                 buildRuleUl();
+            } else if (e.type === 'blackRule') {
+                blackUl.empty();
+                buildBlackUl();
             }
         });
     }
