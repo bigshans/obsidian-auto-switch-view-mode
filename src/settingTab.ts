@@ -1,4 +1,4 @@
-import {App, PluginSettingTab, Setting, TFile} from "obsidian";
+import {App, PluginSettingTab, Setting, TAbstractFile, TFile} from "obsidian";
 import AutoSwitchPlugin, {Subscription} from "./main";
 
 interface Trigger {
@@ -49,7 +49,7 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                         return;
                     }
                     const p = choose.value;
-                    const file: TFile = (this.plugin.app.vault as any).fileMap[p];
+                    const file = this.plugin.getFileFromFileMap(p);
                     // maybe not in there, don't believe the type
                     if (file.extension) {
                         this.plugin.sm.appendFile(p);

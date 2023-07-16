@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Plugin } from 'obsidian';
+import { Notice, Plugin, TFile } from 'obsidian';
 import {EditorManager} from './editor';
 import {WorkspaceManager} from './workspace';
 import {AutoSwitchSettingTab} from './settingTab';
@@ -26,6 +26,7 @@ export default class AutoSwitchPlugin extends Plugin {
     public sm: SettingManager;
     public edm: EditorManager;
     public wm: WorkspaceManager;
+    plugin: any;
 
     private openIn() {
         const file = this.app.workspace.getActiveFile();
@@ -53,18 +54,54 @@ export default class AutoSwitchPlugin extends Plugin {
         }
     }
 
-    private toggleSetting() {
+    private getActiveFilePath() {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
             return;
         }
-        const path = file.path;
-        if (this.sm.hasFile(path)) {
-            this.sm.removeFile(path);
-        } else {
-            this.sm.appendFile(path);
+        return file.path;
+    }
+
+    private toggleSetting(path?: string) {
+        if (!path) {
+            return;
         }
-        this.openIn();
+        let op = 'nothing';
+        if (this.isFolder(path)) {
+            if (this.sm.hasFolder(path)) {
+                op = 'remove';
+                this.sm.removeFolder(path);
+            } else {
+                op = 'append'
+                this.sm.appendFolder(path);
+            }
+        } else {
+            if (this.sm.hasFile(path)) {
+                op = 'remove';
+                this.sm.removeFile(path);
+            } else {
+                op = 'append'
+                this.sm.appendFile(path);
+            }
+        }
+        if (op === 'append') {
+            new Notice("Append to List successful");
+        } else if (op === 'remove') {
+            new Notice("Remove from List successful");
+        }
+        new Notice('Take effect the next time you open the file');
+    }
+
+    private isFolder(path: string) {
+        const file = this.getFileFromFileMap(path);
+        if (!file) {
+            return false;
+        }
+        return !file.extension;
+    }
+
+    public getFileFromFileMap(path: string): TFile {
+        return (this.app.vault as any).fileMap[path];
     }
 
     async onload() {
@@ -74,17 +111,27 @@ export default class AutoSwitchPlugin extends Plugin {
         this.edm = new EditorManager(this);
         this.wm = new WorkspaceManager(this);
 
-        this.addRibbonIcon('switch', 'Auto Switch Viewer Mode', () => this.toggleSetting());
+        // I think it's needn't.
+        // this.addRibbonIcon('switch', 'Auto Switch Viewer Mode', () => this.toggleSetting(this.getActiveFile()));
 
         this.addCommand({
             id: 'append-or-remove-to-switch-list',
             name: "Append or remove to auto switch list",
-            callback: () => this.toggleSetting(),
+            callback: () => this.toggleSetting(this.getActiveFilePath()),
         });
 
         this.addSettingTab(new AutoSwitchSettingTab(this.app, this));
 
         this.app.workspace.on('file-open', () => this.openIn());
+        this.app.workspace.on('file-menu', (menu, file) => {
+            menu.addItem((item) => {
+                item.setTitle("Auto Switch: remove or append to list")
+                    .setIcon("switch")
+                    .onClick(() => {
+                        this.toggleSetting(file.path);
+                    });
+            });
+        });
     }
 
     async loadSettings() {
