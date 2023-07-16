@@ -119,7 +119,7 @@ export default class AutoSwitchPlugin extends Plugin {
 
         this.addSettingTab(new AutoSwitchSettingTab(this.app, this));
 
-        this.registerEvent(this.app.workspace.on('file-open', () => this.openIn()));
+        this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.openIn()));
         this.registerEvent(
             this.app.workspace.on('file-menu', (menu, file) => {
                 menu.addItem((item) => {
