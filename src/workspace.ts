@@ -1,5 +1,6 @@
-import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { WorkspaceLeaf } from 'obsidian';
 import {EditorManager, EditorState} from './editor';
+import AutoSwitchPlugin from './main';
 
 export interface LeafState {
     state?: EditorState;
@@ -9,17 +10,17 @@ export interface LeafState {
 export class WorkspaceManager {
     private leafMap: WeakMap<WorkspaceLeaf, LeafState> = new WeakMap();
     private edm: EditorManager;
-    private lastId?: string;
+    private prevId?: string;
 
-    constructor(private plugin: Plugin) {
+    constructor(private plugin: AutoSwitchPlugin) {
         this.edm = new EditorManager(this.plugin);
     }
 
     private getLastActiveLeafState() {
-        if (!this.lastId) {
+        if (!this.prevId) {
             return;
         }
-        const leaf = this.plugin.app.workspace.getLeafById(this.lastId);
+        const leaf = this.plugin.app.workspace.getLeafById(this.prevId);
         if (!leaf) {
             return;
         }
@@ -28,10 +29,10 @@ export class WorkspaceManager {
 
     private getLeaf() {
         const leaf = this.plugin.app.workspace.getLeaf();
-        if (!this.lastId) {
+        if (!this.prevId) {
             // @ts-ignore
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            this.lastId = leaf?.id;
+            this.prevId = leaf?.id;
         }
         return leaf;
     }
@@ -42,7 +43,7 @@ export class WorkspaceManager {
         }
     }
 
-    public recordPrevStateOnActiveLeaf() {
+    public recordPrevStateOnActiveLeaf(initState?: EditorState) {
         const state = this.edm.getEditorState();
         const _state =  state === 'other' ? undefined : state;
         const leaf = this.getLeaf();
@@ -54,7 +55,9 @@ export class WorkspaceManager {
             const pls = this.getLastActiveLeafState();
             // leaf init
             this.setRecord(leaf, {
-                state: _state || pls?.state,
+                state: !initState
+                    ? (_state || pls?.state || this.edm.getInitState())
+                    : initState,
                 isLock: false
             });
             return;

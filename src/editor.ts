@@ -1,10 +1,11 @@
-import { Plugin } from 'obsidian';
+import AutoSwitchPlugin from './main';
 
 export type EditorState = 'source' | 'preview';
 
 export class EditorManager {
 
-    constructor(private plugin: Plugin) {}
+    constructor(private plugin: AutoSwitchPlugin) {
+    }
 
     private getEditor() {
         return this.plugin.app.workspace.activeEditor;
@@ -14,6 +15,10 @@ export class EditorManager {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         this.getEditor()?.toggleMode();
+    }
+
+    public getInitState() {
+        return this.plugin.setting.initState;
     }
 
     public setEditorMode(to: EditorState) {

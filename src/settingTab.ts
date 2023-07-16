@@ -20,9 +20,10 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
 
         containerEl.empty();
 
-        containerEl.createEl('h2', {text: 'Setting for auto switch view mode'});
+        containerEl.createEl('h2', {text: 'Setting for auto switch mode'});
         this.buildAppendSetting(containerEl);
         this.buildRuleSetting(containerEl);
+        this.buildInitState(containerEl);
         this.sub = this.buildFileList(containerEl);
     }
 
@@ -92,6 +93,21 @@ export class AutoSwitchSettingTab extends PluginSettingTab {
                 detect.clear && detect.clear();
             })
         });
+    }
+
+    buildInitState(containerEl: HTMLElement) {
+        new Setting(containerEl)
+            .setName("Default Mode")
+            .setDesc("Set the default mode.")
+            .addDropdown((cp) => {
+                cp.addOption('source', 'source');
+                cp.addOption('preview', 'preview');
+                cp.setValue(this.plugin.setting.initState);
+                cp.onChange((v) => {
+                    cp.setValue(v);
+                    this.plugin.sm.setInitState(v as any);
+                });
+            });
     }
 
     hide() {

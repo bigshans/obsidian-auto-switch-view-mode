@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Notice, Plugin, TFile, TFolder } from 'obsidian';
-import {EditorManager} from './editor';
+import { Notice, Plugin, TFolder } from 'obsidian';
+import {EditorManager, EditorState} from './editor';
 import {WorkspaceManager} from './workspace';
 import {AutoSwitchSettingTab} from './settingTab';
 
@@ -8,6 +8,7 @@ interface PluginSetting {
     folders: string[];
     files: string[];
     ruler: string[];
+    initState: EditorState;
 }
 
 interface SaveSetting {
@@ -18,7 +19,8 @@ interface SaveSetting {
 const DEFAULT_SETTING: PluginSetting = {
     folders: [],
     files: [],
-    ruler: []
+    ruler: [],
+    initState: 'source',
 }
 
 export default class AutoSwitchPlugin extends Plugin {
@@ -26,7 +28,7 @@ export default class AutoSwitchPlugin extends Plugin {
     public sm: SettingManager;
     public edm: EditorManager;
     public wm: WorkspaceManager;
-    plugin: any;
+    private firstOpenInRule = false;
 
     private openIn() {
         const file = this.app.workspace.getActiveFile();
@@ -40,7 +42,7 @@ export default class AutoSwitchPlugin extends Plugin {
             if (state === 'other') {
                 return;
             }
-            this.wm.recordPrevStateOnActiveLeaf();
+            this.wm.recordPrevStateOnActiveLeaf(this.firstOpenInRule ? undefined : this.edm.getInitState());
             this.edm.setEditorMode('preview');
             this.wm.lockActiveLeaf();
         } else if (this.wm.isLockedActiveLeaf()) {
@@ -52,6 +54,7 @@ export default class AutoSwitchPlugin extends Plugin {
         } else {
             this.wm.recordPrevStateOnActiveLeaf();
         }
+        this.firstOpenInRule = true;
     }
 
     private getActiveFilePath() {
@@ -119,7 +122,7 @@ export default class AutoSwitchPlugin extends Plugin {
 
         this.addSettingTab(new AutoSwitchSettingTab(this.app, this));
 
-        this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.openIn()));
+        this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => leaf ? this.openIn() : null));
         this.registerEvent(
             this.app.workspace.on('file-menu', (menu, file) => {
                 menu.addItem((item) => {
@@ -146,9 +149,9 @@ export default class AutoSwitchPlugin extends Plugin {
 }
 
 export interface SettingEvent {
-    path: string;
-    type: 'file' | 'folder' | 'rule';
-    op: 'append' | 'remove';
+    value: string;
+    type: 'file' | 'folder' | 'rule' | 'initState';
+    op: 'append' | 'remove' | 'update';
 }
 export type Subscription = (e: SettingEvent) => void;
 
@@ -157,6 +160,7 @@ class SettingManager {
     private folders: Set<string>;
     private rulers: Set<string>;
     private rawData: PluginSetting;
+    private initState: EditorState;
     private subscription: Subscription[] = [];
 
     constructor(
@@ -166,6 +170,7 @@ class SettingManager {
         this.files = new Set(this.rawData.files);
         this.folders = new Set(this.rawData.folders);
         this.rulers = new Set(this.rawData.ruler);
+        this.initState = this.rawData.initState;
         this.subscribe((_) => {
             this.triggerSaved();
         })
@@ -175,6 +180,7 @@ class SettingManager {
         this.rawData.files = [...this.files];
         this.rawData.folders = [...this.folders];
         this.rawData.ruler = [...this.rulers];
+        this.rawData.initState = this.initState;
         this.settingManager.saveSettings();
     }
 
@@ -185,7 +191,7 @@ class SettingManager {
     public appendFile(path: string) {
         this.files.add(path);
         this.dispatch({
-            path,
+            value: path,
             type: 'file',
             op: 'append'
         });
@@ -194,7 +200,7 @@ class SettingManager {
     public appendFolder(path: string) {
         this.folders.add(path);
         this.dispatch({
-            path,
+            value: path,
             type: 'folder',
             op: 'append'
         });
@@ -203,7 +209,7 @@ class SettingManager {
     public appendRule(rule: string) {
         this.rulers.add(rule);
         this.dispatch({
-            path: rule,
+            value: rule,
             type: 'rule',
             op: 'append',
         })
@@ -241,7 +247,7 @@ class SettingManager {
     public removeFile(path: string) {
         this.files.delete(path);
         this.dispatch({
-            path,
+            value: path,
             type: 'file',
             op: 'remove'
         });
@@ -254,7 +260,7 @@ class SettingManager {
             if (this.folders.has(paths.join('/'))) {
                 this.folders.delete(p);
                 this.dispatch({
-                    path: p,
+                    value: p,
                     type: 'folder',
                     op: 'remove'
                 });
@@ -267,9 +273,17 @@ class SettingManager {
     public removeRule(rule: string) {
         this.folders.delete(rule);
         this.dispatch({
-            path: rule,
+            value: rule,
             type: 'rule',
             op: 'remove'
+        });
+    }
+
+    public setInitState(state: EditorState) {
+        this.dispatch({
+            value: state,
+            type: 'initState',
+            op: 'update'
         });
     }
 
