@@ -28,6 +28,8 @@ You can define the rule which files need to be switched automatically. Every rul
 
 You can add paths directly to the list by executing a command to add the currently active open file, or by selecting a file or folder in the sidebar, then right-clicking and selecting the "Auto Switch" item, etc.
 
+In setting tab, you can add it by the dropdown.
+
 ### Decision Algorithm
 
 ```js
