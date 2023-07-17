@@ -16,7 +16,7 @@ There are three way you can define your rules.
 
 You can define the rule which files should not be switched automatically. Every rule in black list should be a regexp. The plugin will match the path through `new RegExp('Your regexp here').test(file.path)`.
 
-> Notice: The value format of `file.path` is like `diary/today.md`.
+> **Note** : The value format of `file.path` is like `diary/today.md`.
 
 You can set it in setting tab.
 
