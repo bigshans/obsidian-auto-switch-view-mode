@@ -1,4 +1,4 @@
-import { WorkspaceLeaf } from 'obsidian';
+import { MarkdownView, WorkspaceLeaf } from 'obsidian';
 import {EditorManager, EditorState} from './editor';
 import AutoSwitchPlugin from './main';
 
@@ -28,6 +28,10 @@ export class WorkspaceManager {
     }
 
     private getLeaf() {
+        const view = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!view) {
+            return;
+        }
         const leaf = this.plugin.app.workspace.getLeaf();
         if (!this.prevId) {
             // @ts-ignore
@@ -105,6 +109,9 @@ export class WorkspaceManager {
 
     public isLockedActiveLeaf() {
         const leaf = this.getLeaf();
+        if (!leaf) {
+            return false;
+        }
         const ls = this.leafMap.get(leaf);
         if (!ls) {
             return false;
@@ -114,6 +121,9 @@ export class WorkspaceManager {
 
     public getPrevStateOnActiveLeaf() {
         const leaf = this.getLeaf();
+        if (!leaf) {
+            return 'other';
+        }
         const state = this.leafMap.get(leaf);
         return state && state.state || 'other';
     }
